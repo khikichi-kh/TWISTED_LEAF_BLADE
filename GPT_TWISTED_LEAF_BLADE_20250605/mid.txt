@@ -1,0 +1,83 @@
+
+% In this section you may modify the mesh in any way that does not
+% alter the set of nodes.
+
+    if (Steps(m)==0) && m.globalDynamicProps.doinit
+        %Position of each regions 
+        id_distalpart_p(m.nodes(:,3) >= 15.8) = 1;
+        id_proximalpart_p(m.nodes(:,3) <= -15.8) = 1;
+        id_innerend_p((m.nodes(:,2) <= -1.5)&(m.nodes(:,1) <= 0))=1;
+        id_outerend_p((m.nodes(:,2) <= -1.5)&(m.nodes(:,1) >= 0))=1;
+
+        %For Fig. S1e
+        %We created Fig. S1e using id_innerend_p and id_pro_dis_part_p.
+        id_pro_dis_part_p((m.nodes(:,3) >= 15.8) | (m.nodes(:,3) <= -15.8)) = 1;
+        
+        %For Fig. S2
+        %We created Fig. S2 using id_outerend_p and idb_all_p.
+        idb_all_p((m.nodes(:,1) < 0))=1;
+        idb_all_p((m.nodes(:,2) > -1.5)&(m.nodes(:,1) >= 0))=1;
+
+        %Polarity field for pre-growth (Lines 147-165)
+        s_outerend_p = id_outerend_p;
+        m.morphogenclamp((id_outerend_p==1), s_outerend_i ) = 1; 
+        m = leaf_mgen_conductivity( m, 'S_OUTEREND', 10);  
+        m = leaf_mgen_absorption( m, 'S_OUTEREND', 0.0001 );
+        
+        s_innerend_p = id_innerend_p;
+        m.morphogenclamp((id_innerend_p==1), s_innerend_i ) = 1; 
+        m = leaf_mgen_conductivity( m, 'S_INNEREND', 10);  
+        m = leaf_mgen_absorption( m, 'S_INNEREND', 0.0001 );
+        
+    
+
+        %Polarity field for pregrowth and our three models (Lines 169-174)
+        P(:) = 0.1;
+        P(id_proximalpart_p == 1) = 1;
+        P(id_distalpart_p == 1) = 0;
+        m.morphogenclamp(((id_distalpart_p == 1)|(id_proximalpart_p == 1)), polariser_i) = 1;
+        m = leaf_mgen_conductivity(m, 'POLARISER', 10);
+        m = leaf_mgen_absorption(m, 'POLARISER', 0.0001);
+
+    %Pre-growth setting (Lines 177-191)
+    elseif (Steps(m)>5)&(Steps(m)<15)
+        m = leaf_mgen_conductivity( m, 'S_OUTEREND', 0);  
+        m = leaf_mgen_absorption( m, 'S_OUTEREND', 0 );
+        m = leaf_mgen_conductivity( m, 'S_INNEREND', 0);  
+        m = leaf_mgen_absorption( m, 'S_INNEREND', 0 );
+        %m = leaf_mgen_conductivity( m, 'S_DISTALPART', 0);  
+        %m = leaf_mgen_absorption( m, 'S_DISTALPART', 0 );
+        %m = leaf_mgen_conductivity( m, 'S_PROXIMALPART', 0);  
+        %m = leaf_mgen_absorption( m, 'S_PROXIMALPART', 0 );
+
+        kapar_p(:) = 0;
+        kaper_p(:) = 0.25.*pro(2, s_outerend_p);
+        kbpar_p(:) = 0;
+        kbper_p(:) = 0.25.*pro(2, s_innerend_p);
+        knor_p(:)=0.1.*pro(2, s_outerend_p);
+
+
+    % Growth setting for our three models (Lines 195-214)
+    elseif (Steps(m)>15)
+        kapar_p(:) = 0.5;
+        kaper_p(:) = 0.5;
+        kbpar_p(:) = 0.5;
+        kbper_p(:) = 0.5;
+        knor_p(:)=0;
+
+        %Setting of fixation
+        %Fixation at inner overlapping end
+        Inner_fix = true; %"true" and "false" mean "Run with fixation" and "Run without fixation", respectively.
+        if Inner_fix
+            m = leaf_fix_vertex(m, 'vertex', find(id_innerend_p == 1), 'dfs', 'x,y');
+        end
+
+        %Fixation at bottom and top ends
+        Proximal_Distal_fix = true; %"true" and "false" mean "Run with fixation" and "Run without fixation", respectively.
+        if Proximal_Distal_fix
+            m = leaf_fix_vertex(m, 'vertex', find(id_proximalpart_p == 1), 'dfs', 'x,y,z');
+            m = leaf_fix_vertex(m, 'vertex', find(id_distalpart_p == 1), 'dfs', 'x,y,z');
+        end
+
+
+    end
